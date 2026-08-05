@@ -99,6 +99,11 @@ CREATE USER u1 WITH PASSWORD='user1', PRIVILEGES = (SECURITY)\g
      dropping tables between tests) can run before being cancelled. Defaults to 90000 (90s);
    - `-Ddebezium.test.records.waittime=<seconds>` / `-Ddebezium.test.engine.waittime=<seconds>` — how
      long tests wait for expected records/engine state before giving up. Both default to 30
+   - `-Ddatabase.lock.timeout=<seconds>` (`IngresConnectorConfig.DATABASE_LOCK_TIMEOUT`) — bounds how
+     long the **connector-under-test's own** connections wait to acquire a table/row lock (`SET LOCKMODE
+     SESSION WHERE TIMEOUT`). Defaults to 60 and also bounds the connector-under-test's own statements, not
+     just the admin connection). If you change either, keep `database.query.timeout.ms` comfortably
+     above `database.lock.timeout`.
 
    **Note:** if you see locking errors (e.g. "error occurred in trying to get a lock while opening a
    database") or tests timing out waiting for records, these values may need to be increased for your

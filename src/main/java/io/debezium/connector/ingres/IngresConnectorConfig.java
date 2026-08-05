@@ -44,6 +44,8 @@ public class IngresConnectorConfig extends HistorizedRelationalDatabaseConnector
 
     protected static final int DEFAULT_CDC_TIMEOUT = 5;
 
+    protected static final int DEFAULT_LOCK_TIMEOUT = 0;
+
     public static final String DEFAULT_HEADER_TABLE = "cdc_header_marker";
 
     /**
@@ -283,6 +285,18 @@ public class IngresConnectorConfig extends HistorizedRelationalDatabaseConnector
 
     public static final Field PORT = RelationalDatabaseConnectorConfig.PORT.withDefault(DEFAULT_PORT);
 
+    public static final Field DATABASE_LOCK_TIMEOUT = Field.create(DATABASE_CONFIG_PREFIX + "lock.timeout")
+            .withDisplayName("Lock wait timeout (s)")
+            .withType(ConfigDef.Type.INT)
+            .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED, 1))
+            .withWidth(Width.SHORT)
+            .withImportance(Importance.LOW)
+            .withDescription("Bounds how long, in seconds, a session will wait to acquire a table/row lock before failing, "
+                    + "via Ingres's 'SET LOCKMODE SESSION WHERE TIMEOUT' (a value of 0 waits indefinitely). "
+                    + "Applied to every connection this connector opens so a lock request fails after a period of time instead of hanging indefinitely.")
+            .withValidation(Field::isNonNegativeInteger)
+            .withDefault(DEFAULT_LOCK_TIMEOUT);
+
     public static final Field SNAPSHOT_MODE = Field.create("snapshot.mode")
             .withDisplayName("Snapshot mode")
             .withEnum(SnapshotMode.class, SnapshotMode.INITIAL)
@@ -350,7 +364,7 @@ public class IngresConnectorConfig extends HistorizedRelationalDatabaseConnector
 
     private static final ConfigDefinition CONFIG_DEFINITION = HistorizedRelationalDatabaseConnectorConfig.CONFIG_DEFINITION.edit()
             .name("Ingres")
-            .group(Field.Group.CONNECTION, HOSTNAME, PORT, USER, PASSWORD, DATABASE_NAME, QUERY_TIMEOUT_MS)
+            .group(Field.Group.CONNECTION, HOSTNAME, PORT, USER, PASSWORD, DATABASE_NAME, QUERY_TIMEOUT_MS, DATABASE_LOCK_TIMEOUT)
             .group(Field.Group.CONNECTOR_SNAPSHOT, SNAPSHOT_MODE, SNAPSHOT_ISOLATION_MODE, SNAPSHOT_LOCKING_MODE)
             .group(Field.Group.CONNECTOR, INCREMENTAL_SNAPSHOT_CHUNK_SIZE, SOURCE_INFO_STRUCT_MAKER)
             .group(Field.Group.CONNECTOR_ADVANCED, CDC_TIMEOUT, CDC_MARKER_TABLE)

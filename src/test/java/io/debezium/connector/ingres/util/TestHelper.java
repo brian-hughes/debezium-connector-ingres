@@ -52,7 +52,8 @@ public class TestHelper {
 
         // Bound how long any statement (including teardown's DROP TABLE) can run before being
         // cancelled, so a stuck lock/connection fails fast instead of hanging on the ~10 minute
-        // framework default.
+        // framework default. Kept comfortably above DATABASE_LOCK_TIMEOUT (60s, see defaultConfig())
+        // so this doesn't preempt a legitimate, bounded lock wait - see QUERY_TIMEOUT_MS comment there.
         setDefaultProperty("database.query.timeout.ms", "90000");
 
         // Set this to give enough delay to debug Debezium events
@@ -117,7 +118,8 @@ public class TestHelper {
                 .withDefault(FileSchemaHistory.FILE_PATH, SCHEMA_HISTORY_PATH)
                 .withDefault(IngresConnectorConfig.INCLUDE_SCHEMA_CHANGES, false)
                 .withDefault(IngresConnectorConfig.CDC_TIMEOUT, 3)
-                .withDefault(CommonConnectorConfig.EXECUTOR_SHUTDOWN_TIMEOUT_MS, 30_000);
+                .withDefault(CommonConnectorConfig.EXECUTOR_SHUTDOWN_TIMEOUT_MS, 30_000)
+                .withDefault(IngresConnectorConfig.DATABASE_LOCK_TIMEOUT, 60);
     }
 
     public static IngresConnection adminConnection() {

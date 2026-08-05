@@ -10,6 +10,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,6 +31,7 @@ import com.ingres.jdbc.IngresDriver;
 import io.debezium.DebeziumException;
 import io.debezium.config.CommonConnectorConfig;
 import io.debezium.config.Configuration;
+import io.debezium.config.Field;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.pipeline.spi.OffsetContext;
@@ -77,14 +79,32 @@ public class IngresConnection extends JdbcConnection {
      */
     private final String realDatabaseName;
 
+    private static final Field LOCK_TIMEOUT = Field.create("lock.timeout")
+            .withDefault(IngresConnectorConfig.DEFAULT_LOCK_TIMEOUT);
+
     /**
      * Creates a new connection using the supplied configuration.
      *
      * @param config {@link Configuration} instance, may not be null.
      */
     public IngresConnection(JdbcConfiguration config) {
-        super(config, FACTORY, QUOTED_CHARACTER, QUOTED_CHARACTER);
+        super(config, FACTORY, statement -> boundLockWaitTime(statement, config), QUOTED_CHARACTER, QUOTED_CHARACTER);
         realDatabaseName = retrieveRealDatabaseName().trim();
+    }
+
+    /**
+     * Bounds how long this session will wait to acquire a table/row lock, so a stuck lock request fails
+     * fast instead of hanging indefinitely.
+     */
+    private static void boundLockWaitTime(Statement statement, JdbcConfiguration config) throws SQLException {
+        // A blocking snapshot (or any query needing a table/row lock) that's still waiting on a lock when the
+        // connector is abruptly stopped can leave that wait unbounded, since interrupting the thread doesn't
+        // cancel an in-flight Ingres lock request. That leaves doStop() unreached (JDBC connection/JMX metrics
+        // never cleaned up) and the lock held server-side, breaking later connector restarts and DDL on this
+        // schema.
+        if (config.getInteger(LOCK_TIMEOUT) > 0) {
+            statement.execute("SET LOCKMODE SESSION WHERE TIMEOUT = " + config.getInteger(LOCK_TIMEOUT));
+        }
     }
 
     @Override
